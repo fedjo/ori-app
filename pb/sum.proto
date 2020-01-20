@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package pb;
+
+message Value {
+    int64 v = 1;
+}
+
+message Point {
+    int64 x = 1;
+    int64 y = 2;
+}
+
+message Ret {
+    int64 ret = 1;
+    string msg = 2;
+}
+
+service OriService {
+
+    rpc Sum(Point) returns (Ret) {}
+
+    rpc Gcd(stream Point) returns (Ret) {}
+
+    rpc Sqrt(Value) returns (stream Ret) {}
+
+}

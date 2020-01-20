@@ -1,0 +1,28 @@
+FROM golang:1.13-alpine AS builder
+
+RUN set -x && \
+    apk add git curl && \
+    curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+
+# Change this path!
+WORKDIR /go/src/github.com/fedjo/ori-app/
+
+COPY Gopkg.lock Gopkg.toml ./
+
+RUN set -x && \
+    dep ensure -v --vendor-only
+
+COPY client ./client
+
+COPY pb ./pb
+
+RUN set -x && \
+    CGO_ENABLED=0 GOOS=linux go build -v -a -installsuffix nocgo -o /opt ./...
+
+
+
+FROM scratch
+
+COPY --from=builder /opt/client .
+
+EXPOSE 3000

@@ -1,0 +1,17 @@
+version: "3"
+services:
+  server:
+    image: local/srv
+    environment:
+      BIND_PORT: 3000
+    ports:
+      - 3000:3000
+  client:
+    image: local/client
+    command: "./client 42 50"
+    expose:
+      - 3000
+    environment:
+      SERVER_ADDRESS: server:3000
+    depends_on:
+      - server

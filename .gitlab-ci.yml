@@ -1,0 +1,151 @@
+#include:
+#  - template: Code-Quality.gitlab-ci.yml
+
+stages:
+  - build
+  - test
+  - deploy
+  - manage
+
+
+variables:
+  CLI_IMAGE: client
+  SRV_IMAGE: srv
+  # Specify to Docker where to create the certificates, Docker will
+  # create them automatically on boot, and will create
+  # `/certs/client` that will be shared between the service and job
+  # container, thanks to volume mount from config.toml
+  DOCKER_TLS_CERTDIR: "/certs"
+
+# Build stage - Build all docker images
+build:
+  stage: build
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - ./docker/build.sh -p $CI_BUILD_REF_SLUG
+    - docker push $CI_REGISTRY_IMAGE/$CLI_IMAGE:$CI_BUILD_REF_SLUG
+    - docker push $CI_REGISTRY_IMAGE/$SRV_IMAGE:$CI_BUILD_REF_SLUG
+    - if [ "$CI_BUILD_REF_SLUG" != "master" ]; then exit 0; fi
+    - docker push $CI_REGISTRY_IMAGE/dev:$CI_BUILD_REF_SLUG
+  tags:
+    - docker-build
+  dependencies: []
+
+
+# Test stage
+
+## Lint code using flake8
+flake8:
+  stage: test
+  image: $CI_REGISTRY_IMAGE:$CI_BUILD_REF_SLUG
+  variables:
+    GIT_STRATEGY: none
+  before_script:
+    - cd /tomotech-web
+  script:
+    - flake8
+  dependencies: []
+
+# Test stage - Run unittests and code quality
+
+.pytest_before_script: &pytest_before_script |
+  export PYTHONPATH=$PYTHONPATH:$(pwd)/
+  export ENV=test
+  mv .env.test .env
+  mkdir keys
+  echo $GCLOUD_DEV_STORAGE_KEY > keys/storage-key.json
+  python3 role_test_seed.py
+  echo "v1234" > build.txt
+
+
+pytest:
+  stage: test
+  image: $CACHE_IMAGE:v$CI_PIPELINE_ID
+  services:
+    - postgres:9.6-alpine
+  variables:
+    DATABASE_URL: postgresql://platform:platform@postgres/platform
+  before_script:
+    - *pytest_before_script
+  script:
+    - pytest --cov=tests tests --durations=10
+
+
+
+
+# Deploy stage
+
+## Deploy template to be used for deploying to staging and review apps
+.deploy_template: &deploy_template
+  stage: deploy
+  variables: &deploy_variables
+    VERSION: $CI_BUILD_REF_SLUG
+    ENVIRONMENT: $CI_ENVIRONMENT_NAME
+    URL: $CI_ENVIRONMENT_URL
+  artifacts:
+    expire_in: 7 days
+  dependencies: []
+
+## Deploy branch to each own dynamically created review app
+
+## Deploy master branch to staging environment
+deploy staging:
+  <<: *deploy_template
+  environment:
+    name: staging
+  variables:
+    <<: *deploy_variables
+  script:
+    - kubectl config use-context staging-cluster
+    - kubectl apply -f server.yaml
+    - kubectl apply -f client.yaml
+  only:
+    - development
+
+## Deploy prod branch to production environment
+deploy production:
+  <<: *deploy_template
+  environment:
+    name: production
+  variables:
+    <<: *deploy_variables
+  only:
+    - master
+
+
+# Manage stage - Manual actions on environments
+
+## Manage template to be used by all jobs in this stage
+.manage_template: &manage_template
+  stage: manage
+  when: manual
+  variables:
+    GIT_STRATEGY: none
+  dependencies: []
+
+## Display env logs
+show server logs:
+  <<: *manage_template
+  script:
+    - kubectl logs -f deployment/server.yaml --all-containers=true --since=15m
+
+show client logs:
+  <<: *manage_template
+  script:
+    - kubectl logs -f deployment/client.yaml --all-containers=true --since=15m
+
+## Restart containers of deployed environment.
+scale server:
+  <<: *manage_template
+  script:
+    - kubectl scale --replicas=$SERVER_REPLICAS -f server.yaml
+
+## Delete all pods and services in namespace default
+clear cluster:
+  <<: *manage_template
+  stage: manage
+  script:
+    - kubectl -n default delete pod,svc --all

@@ -32,19 +32,19 @@ func main() {
     if args[0] == "sqrt" {
         _sq, err := strconv.ParseInt(args[1], 10, 32)
         if err != nil {
-            log.Fatalf("Cannot parse sqrt arg", err)
+            log.Fatalf("Cannot parse sqrt arg %v", err)
         }
         sq = _sq
         fmt.Printf("Hello sqrt %v\n", sq)
     } else {
         _a, err := strconv.ParseInt(args[0], 10, 32)
         if err != nil {
-            log.Fatalf("Cannot parse first arg", err)
+            log.Fatalf("Cannot parse first arg %v", err)
         }
         a = _a
         _b, err := strconv.ParseInt(args[1], 10, 32)
         if err != nil {
-            log.Fatalf("Cannot parse second arg", err)
+            log.Fatalf("Cannot parse second arg %v", err)
         }
         b = _b
         fmt.Printf("Hello sum %v %v\n", a, b)

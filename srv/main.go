@@ -8,6 +8,7 @@ import (
     "os/signal"
     "syscall"
     "time"
+    "errors"
 
     "github.com/namsral/flag"
 	kitlog "github.com/go-kit/kit/log"
@@ -37,7 +38,7 @@ type Server struct {
 }
 
 func NewServer(appName string, logger kitlog.Logger) *Server {
-	logger = kitlog.With(logger, "component", "server")
+    level.Info(logger).Log("msg", "Creating server")
 	return &Server{
 		appName: appName,
 		logger:  logger,
@@ -45,11 +46,16 @@ func NewServer(appName string, logger kitlog.Logger) *Server {
 }
 
 func (s *Server) Sum(ctx context.Context, p *pb.Point) (*pb.Ret, error) {
-    level.Info(logger).Log("msg", "Received", "point", p)
+    level.Info(s.logger).Log("msg", "Received", "point", p)
 
+    if p == nil {
+        level.Error(s.logger).Log("msg", "Nil Point provided")
+        return &pb.Ret{}, errors.New("Nil Point provided")
+    }
 	x, y := p.X, p.Y
 	sum := x + y
-    level.Info(logger).Log("msg", "Sum calculated: ", "value", sum)
+    level.Info(s.logger).Log("msg", "Sum calculated: ", "value", sum)
+
 	return &pb.Ret{Ret: sum, Msg: "Success"}, nil
 }
 

@@ -39,7 +39,9 @@ go run -v srv/main.go
 ```
 5. On another terminal run to calculate the sum
 ```
-go run -v client/main.go 42 10
+go run -v client/main.go sum 12 30
+go run -v client/main.go sqrt 1764
+go run -v client/main.go gcd 168 546
 ```
 
 

@@ -1,6 +1,3 @@
-#include:
-#  - template: Code-Quality.gitlab-ci.yml
-
 stages:
   - build
   - test
@@ -11,11 +8,7 @@ stages:
 variables:
   CLI_IMAGE: client
   SRV_IMAGE: srv
-  # Specify to Docker where to create the certificates, Docker will
-  # create them automatically on boot, and will create
-  # `/certs/client` that will be shared between the service and job
-  # container, thanks to volume mount from config.toml
-  DOCKER_TLS_CERTDIR: "/certs"
+  MOCK_IMAGE: mock
 
 # Build stage - Build all docker images
 build:
@@ -36,44 +29,12 @@ build:
 
 
 # Test stage
-
-## Lint code using flake8
-flake8:
+test:
   stage: test
-  image: $CI_REGISTRY_IMAGE:$CI_BUILD_REF_SLUG
-  variables:
-    GIT_STRATEGY: none
-  before_script:
-    - cd /tomotech-web
   script:
-    - flake8
-  dependencies: []
-
-# Test stage - Run unittests and code quality
-
-.pytest_before_script: &pytest_before_script |
-  export PYTHONPATH=$PYTHONPATH:$(pwd)/
-  export ENV=test
-  mv .env.test .env
-  mkdir keys
-  echo $GCLOUD_DEV_STORAGE_KEY > keys/storage-key.json
-  python3 role_test_seed.py
-  echo "v1234" > build.txt
-
-
-pytest:
-  stage: test
-  image: $CACHE_IMAGE:v$CI_PIPELINE_ID
-  services:
-    - postgres:9.6-alpine
-  variables:
-    DATABASE_URL: postgresql://platform:platform@postgres/platform
-  before_script:
-    - *pytest_before_script
-  script:
-    - pytest --cov=tests tests --durations=10
-
-
+    # Execute mocking grpc server and server unittests
+    - docker pull "$CI_REGISTRY_IMAGE/$MOCK_IMAGE:$CI_BUILD_REF_SLUG"
+    - docker run $CI_REGISTRY_IMAGE/$MOCK_IMAGE:$CI_BUILD_REF_SLUG
 
 
 # Deploy stage
@@ -112,6 +73,10 @@ deploy production:
     name: production
   variables:
     <<: *deploy_variables
+  script:
+    - kubectl config use-context production-cluster
+    - kubectl apply -f server.yaml
+    - kubectl apply -f client.yaml
   only:
     - master
 
@@ -141,6 +106,7 @@ show client logs:
 scale server:
   <<: *manage_template
   script:
+    ## Variable defined in the CI/CD settings
     - kubectl scale --replicas=$SERVER_REPLICAS -f server.yaml
 
 ## Delete all pods and services in namespace default

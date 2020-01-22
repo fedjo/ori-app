@@ -62,7 +62,8 @@ else
 fi
 
 CLI_IMG="$REGISTRY/oriindustries/ori-app/client:$TAG"
-SRV_IMG="$REGISTRY/oriindustries/ori-app/client:$TAG"
+SRV_IMG="$REGISTRY/oriindustries/ori-app/srv:$TAG"
+MOCK_IMG="$REGISTRY/oriindustries/ori-app/mock:$TAG"
 
 log "Will build images"
 log "cli:               $CLI_IMG"
@@ -94,9 +95,21 @@ set +x
 log
 log
 
+log "Building mock image"
+log
+set -x
+docker build -t $MOCK_IMG \
+    --build-arg=ORIAPP_BUILD_VERSION=$TAG \
+    --build-arg=ORIAPP_BUILD_SHA=${CI_COMMIT_SHA:-$(git rev-parse HEAD)} \
+    --build-arg=ORIAPP_BUILD_DATE="$(date -u '+%Y-%M-%d %H:%m:%S')" \
+    -f $DIR/docker/Dockerfile.mock $DIR
+set +x
+log
+log
 
 
 log "Built images"
 log
-log "cli:               $CLI_IMG"
-log "srv:               $SRV_IMG"
+log "cli:                   $CLI_IMG"
+log "srv:                   $SRV_IMG"
+log "mock:                  $MOCK_IMG"

@@ -1,0 +1,20 @@
+FROM golang:1.13-alpine AS builder
+
+RUN set -x && \
+    apk add git curl && \
+    curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+
+WORKDIR /go/src/github.com/fedjo/ori-app/
+
+COPY docker/entrypoint.sh Gopkg.lock Gopkg.toml ./
+
+RUN set -x && \
+    dep ensure -v --vendor-only
+
+COPY mock_oriservice ./mock_oriservice
+
+COPY srv ./srv
+
+COPY pb ./pb
+
+CMD ["./entrypoint.sh"]

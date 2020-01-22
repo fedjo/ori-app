@@ -67,7 +67,7 @@ defined to be called remotely with their parameters and return types. The client
 creates a stubs in order to access the methods on its side. The stub performs type 
 checking and marshalls the called type and input parameters into a request message. 
 It then sends the message over the network.
-
+\newpage
 \subsection{Data exchange}
 By default gRPC uses \texttt{Protocol Buffers} as serialization mechanism. Data 
 format is defined in \texttt{.proto} files. Protocol buffer data is structured as messages. The compilation of \texttt{.proto} files creates the necessary classes 
@@ -102,7 +102,8 @@ Application environment to store configuration values between deploys. For examp
 For the specific assignment no backing services (like a database, or a message passing system) were used. In any case these applications can be deployed with standalone Kubernetes deployments and accesses as services within the cluster. Otherwise, they can
 be used as SaaS cloud applications and treated as 3rd party backing services.
 \subsection{Build, release, run}
-
+For the scope of the application no release was made. According to Gitflow implementation,
+releases are sepate branches from the master (production branch). Gitlab CI manages releases using tags.
 \subsection{Processes}
 Both applications but mainly the server (microservice) does not hold any internal state. 
 It runs statelessly, calculating and return values. No write or reads to the filesystem 
@@ -150,8 +151,46 @@ the eventsource server from another goroute (eg the gRPC goroutine). A client ca
 A monitoring system for the cluster is usually provided (or can be easily installed) from the Cloud Provider. Moreover every app can expose its metrics and store them to TSDB. On top of this setup an alert system and a visualization tool are needed. I personally favor 
 \texttt{Prometheus}, \texttt{Alert Manager} and \texttt{Graphana}.
 
+\section{Functionality Access}
+The easyest way to access the service from outside the cluster would be to simply expose 
+the Service with a NodePort of LoadBalancer from the cloud provider. In this case the 
+SSL/TLS functionality (or an authentication mechanism) is necessary.
+
+Another solution would be to create a service which works as a client for the gRPC server 
+an exposes an HTTP REST API for the request/response. I would describe it as a translation 
+proxy. The HTTP service can then be accessed with an Ingress.
+
+The MS itself can as well run a web server on a separate goroutine to expose the functionality and gRPC only for internal consumption.
+
+
 \section{Conclusion}
 \subsection{Notes}
+Some important notes.
+\begin{itemize}
+ \item The directory layout used is not alligned with \texttt{go standards for package}.
+ \item Their is no integration with a cloud provider
+ \item The logging level of the applications is statically defined as Info
+ \item No use of GoLint was used.
+ \item No use of magefile
+ \item Unittests for Gcd and Srqt server functions were not implemented
+ \item Mock server only mocks Sum and Gcd
+ \item Gitlab-Ci and Kubernetes files have not be tested on a real system
+ \item Client was developed in quick 'n' dirty approach
+\end{itemize}
+
+
 \subsection{Improvements}
+\begin{itemize}
+ \item Usage of Go Mod
+ \item Better organization of code in packages and modules
+ \item Write more unittests, an end-to-end test or even stress tests
+ \item Use Helm
+ \item Add ConfigMaps to pass configuration values to Kubernetes Pods
+ \item Add SSL functionality to gRPC server
+ \item Try to impove builds by compiling only the files that have changed
+ \item Create a more generic and robust client using cobra
+ 
+\end{itemize}
+
 
 \end{document}

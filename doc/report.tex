@@ -2,10 +2,12 @@
 \usepackage[utf8]{inputenc}
 \usepackage{hyperref}
 \usepackage{listings}
+\usepackage{protobuf/lang}  % include language definition for protobuf
+\usepackage{protobuf/style}
 
 \newcommand{\shellcmd}[1]{\\\indent\indent\texttt{\footnotesize\$ #1}\\}
 % Title Page
-\title{Report on Deevio Assignment}
+\title{Report on Ori Industries Assignment}
 \author{Yiorgos Marinellis}
 
 
@@ -19,168 +21,137 @@ several assumptions that led to specific decisions will be described.
 In the end a basic evaluation of some trade-offs will be presented.
 \end{abstract}
 
-\section{Problem}
-Modern manufacturing processes have a high degree of automation and at the same time high
-quality requirements. Our machine vision solution helps ensuring these quality requirements are
-met by providing means for automatic recognition of defects. In addition to the recognition, it is
-essential to store the data about defects. This is mandatory for us to constantly improve our
-models. Also, our customers need be able to analyze for example common defect types.\\
-\\
-The goal of this task is, to write a service that stores results from a classification service in a
-database and make them available through a REST API. It is meant to run on the edge, that is, a
-computing device that is deployed in a factory.\\
-\\
-Classification results are given as a JSON file with the following structure.
-Status can be one of {processing, complete}, output is an array of predictions.
-\newpage
-\begin{lstlisting}
-{
-    "status":"complete",
-    "imagePath":"20180907/1536311270718.jpg",
-    "imageId":"1536311270718",
-    "output":[
-        {
-            "bbox":[
-                1008.8831787109375,
-                280.6226501464844,
-                1110.0245361328125,
-                380.72021484375
+\section{Purpose}
+The scope of this exercise is to create a basic service (defined as microservice) 
+which exposes a couple of methods through a gRPC interface. 
 
-            ],
-            "probability":0.9725130796432495,
-            "label":"nail",
-            "result":"good"
+The development must be test driven and include an integration with a Continuous Integration/Continuous Delivery platform and a basic Command Line client application 
+in order to access the methods.
 
-        }
-    ]
-}
-\end{lstlisting}
+Kubernetes deployment files in order to expose the service functionality must as well 
+be created.
 
 
-The REST API must
+\section{Cloud native}
+By definition from \href{https://github.com/cncf/toc/blob/master/DEFINITION.md}{Cloud Native Computing Foundation}) cloud native computing uses an open source software 
+stack and is 
 \begin{itemize}
-    \item Return a prediction for a given imageId
-    \item Return all "weak" classifications (containing a prediction with a probability <0.7)
+    \item Containerized
+    \item Dynamically orchestrated
+    \item Microservice Oriented
 \end{itemize}
 
-The JSON file is given to the service via a message bus as a published message on
-topic new\_prediction
-
-\section{Objectives}
-The developed application is intended to be installed on premise using edge devices
-in a factory. At first on premise installations need to have an easy deploy mechanism. This
-is the reason why a containerized solution was used. Next, we do not know the computing
-capabilities of the edge devices. As a result we have to use a compact solution which
-will be suitable for the potential cpu/memory boundaries. We have to also take into
-consideration the storage capabilities of the device and the rate of the incoming
-classification results.
-\subsection{Web framework}
-A Flask is considered a python micro-framework for building web applications. Its stack
-does not include a wide variety of libraries which for us mean that the application will
-perform on a low memory overhead. In the user has to implement the functionalities he/she needs.
-As a general attitude Flask is considered the suitable solution for building micro-services with
-low usage of resources.
-
-\subsection{Database selection}
-The database to use is always a very crucial decision. There are lots of examples of
-big companies migrating from a database to another. Some developers believe that there
-is not a perfect database. It is all a matter of trade-off. The path I usually follow
-in selecting which database to use is ,in the beginning, to select this one that is more
-comfortable for your data structure and your queries. Of course the selection is not
-critical and someone needs to continuously measure the performance and the efficiency
-of the database.\\
-\\
-The predefined json data structure of the classification results in conjunction with the REST API
-implies using a NoSQL database. The biggest advantage is the minimum transformation effort
-needed to save, retrieve and serve the data. No object mappings, no joins. The latter in
-combination with the indexes can give a great performance. In theory an application which
-uses a NoSQL database should not also care about the database schema, which is true, but
-in order to ensure compatibility with older versions some sort of validation or mapping should be done.
-In an SQL database you solve this issue with database migrations. Lastly we use not omit
-a main disadvantage of NoSQL with is updating a complex document in the database. In contrary
-to SQL database a complex query is needed to update embedded documents and arrays.
+\subsection{Containerization}
+To facilitate reproducibility and resource isolation a container solution must be used.
+Docker was selected for this role which nowadays is the top trend in containerization. 
+The main benefit of this approach is that the application becomes independent of the environment and that the container is highly portable.
+\subsection{Container Orchestration}
+Containers are actively scheduled and managed to optimize resource utilization using Kubernetes. It provides load balancing (with Services) between the active application instances (replicas on a Deployment). With ConfigMap and Secrets can share configuration and authentication secrets between your containers.
+Deployment to a K8S cluster can easily be done using the k8s cli inteface, \texttt{kubectl}. Deploying is fast, clean and easy. To my preference for more robust deployments I prefer to use Helm, 
+currently not used for the scope of this exercise. Summarizing, Kubernetes implements all set of DevOpts for our application.
 
 
-\subsection{Publish/subscribe protocol}
-MQTT is a pub/sub protocol over TCP which is suitable for low data and low energy usage.
-Built on-top of TCP it is suitable for real-time reliable communication on WAN. It delivers
-binary data and not any XML format. It can be easily scalable by adding another broker or a subscribed
-client. The way MQTT works is over a long-lived TCP connection with implies that clients are not put on sleep.
-Finally with an extra data cost MQTT can use TLS/SSL for data security.\\
-\\
-Other popular and tested solutions could use ,with an extra overhead, the expressiveness of the XML based
-XMPP protocol (see. \href{https://xmpp.org/extensions/xep-0080.html}{XEP-0080}) or the scalability features
-of Apache Kafka.\\
-\\
-Summarizingly, taking also into account the size of the transferred json, the selected MQTT protocol is an
-efficient solution which combines low resource consumption with real-time communication.
+\subsection{Microservices Architecture}
+Microservices Design Patterns implies  a system of multiple, relatively small applications. They work together to provide the overall functionality of your system. They 
+have well defined boundaries and can autonomously developed by small teams. They provide 
+simplicity over functionality and easy horizontal scaling.
 
-\subsection{Data format updates}
-Changes to the data format are impossible not to happen. MongoDB schema-less aproach lets data to be stored in whatever
-model in the database. But may MongoDB is tolerant to data model changes the application code and the api is not. As a result
-some kind of data validation is needed. An approach to this could to maintain a loose jsonschema and check for the presence
-only of some crucial fields like imageId. This soft validation of the data can help as well to maintain a backwards compatibility
-approach with previous versions. Also, for every field that changes name, a mapping should be stored to ensure that application
-code runs correctly.
+Microservices remove some complexity from the services themselves but they define a distributed system with more complexity. The distributed nature of the system also makes it a lot harder to monitor and manage taking into account that for each service there might be several instances that run in parallel.
 
-\subsection{Easy deploy}
-The containerized solution was used in order to make the on premise application deploy a matter of minutes. A more
-complete solution would be to automatically push the build containers  to the edge devices -some use a reverse ssh connection-
-in order to avoid the cost of physical presence. Though such a process requires ,apart from a reliable internet connection,
-a huge amount of responsibility and permissions from the factory administration team.
-\subsection{Monitoring}
-Having on premise installations mandates the use of monitoring system to ensure that components are always app and running.
-A variety of solutions exist here with Prometheus to the latest trend. A dockerized environment of prometheus, grafana,
-node-exporter and cadvisor was built in separate branch, \texttt{prometheus}.
 
-\section{Documentation}
 
+
+\section{Communication Protocol}
+The protocol \texttt{gRPC} is an implementation for the Remote Method Invocation schema. Such schemas are used in distributed systems when a computer program wants to execute a function in a remote address space. The service exposes a skeleton for the methods 
+defined to be called remotely with their parameters and return types. The client 
+creates a stubs in order to access the methods on its side. The stub performs type 
+checking and marshalls the called type and input parameters into a request message. 
+It then sends the message over the network.
+
+\subsection{Data exchange}
+By default gRPC uses \texttt{Protocol Buffers} as serialization mechanism. Data 
+format is defined in \texttt{.proto} files. Protocol buffer data is structured as messages. The compilation of \texttt{.proto} files creates the necessary classes 
+for our data, to be used from the applications we develop. Moreover, in gRPC exposed 
+methods are as well defined in the \texttt{.proto} files with their parameters and 
+return types.
+
+Below is the \texttt{.proto} file I used to define message payloads and 3 methods 
+that are exposed from the microservice.
+\lstinputlisting[language=protobuf2,style=protobuf]{../pb/sum.proto}
+
+
+
+\section{12factor app}
+
+\subsection{Codebase}
+The source code for the assignment is hosted on a repository Github. I usually prefer
+the monorepo approach or the use of multiple repositories with submodules. On the case 
+both server and client code are located in the same repo but they are treated as to 
+individuals applications with separate Dockerfiles.
+
+The CI/CD file provides the commands stages to create multiple deploys for the application.
 \subsection{Dependencies}
+The dependency handling in go is ,as I consider, still an open problem. I decided to 
+go on with \texttt{\href{https://golang.github.io/dep/}{dep}} as it provides explicit 
+dependency/version declaration and is a project with a big community in Github. Other 
+solutions that I came by was \texttt{\href{https://glide.sh/}{Glide}} which was simple in 
+usage but late in resolving the dependency tree and \texttt{\href{https://blog.golang.org/using-go-modules}{Go Mod}} which seem to be as well as dep a really interesting project.
+\subsection{Config}
+Application environment to store configuration values between deploys. For example environment variable \texttt{BIND\_PORT} was used to store the port where server listens to   and \texttt{SERVER\_ADDRESS} defines the address where the server is accessible from the client.
+\subsection{Backing services}
+For the specific assignment no backing services (like a database, or a message passing system) were used. In any case these applications can be deployed with standalone Kubernetes deployments and accesses as services within the cluster. Otherwise, they can
+be used as SaaS cloud applications and treated as 3rd party backing services.
+\subsection{Build, release, run}
+
+\subsection{Processes}
+Both applications but mainly the server (microservice) does not hold any internal state. 
+It runs statelessly, calculating and return values. No write or reads to the filesystem 
+happen that can change the process's state. The filesystem must only be used as a cache.
+\subsection{Port binding}
+The gRPC service is accessible over the network on a port defined by the deployer. On a 
+Kubernetes cluster this port refers to a Pod's port. A Service has as well to be created 
+either for exposing within the cluster (ClusterIP) or outside (NodePort, LoadBalancer on 
+cloud providers) which will bind the Pod's port to a port specified from the deployer as well.
+\subsection{Concurrency}
+Golang has a pretty well defined concurrency model using lightweight goroutines. The 
+gRPC implementation defines that each RPC handler attached to a registered server will be invoked in its own goroutine. The same is true for service handlers for streaming RPCs. On 
+the current implementation I used \texttt{errgroup} which provides a nice error propagation method and context cancellation for groups of goroutines. This will furthermore 
+enables us the functionality to run other services (like an HTTP server, eventsource) on the same app.
+\subsection{Disposability}
+The server handles SIGTERM by canceling the current context and waiting until all function calls from the Go method have returned before going to shutdown. 
+Unexpected hardware failures are not handled.
+\subsection{Dev/prod parity}
+The scope of this point is to keep development and production branches on a small gap. 
+This can be achieved firstly by keeping the master and development repository branches as
+close as it can be and secondly by creating a common deployment mechanism for both production and development app. Assuming that we are deploying prod on a K8S cluster, we can 
 \begin{itemize}
- \item python-3.5
- \item Flask-1.0.3
- \item pymongo-3.8.0
- \item paho-mqtt-1.4.0
- \item flake8
- \item pytest
- \item coverage
+    \item deploy development on another K8S cluster keep as much as we can the same configuration
+    \item deploy locally the MS app either by using docker-compose or \href{https://tilt.dev/}{Tilt}
 \end{itemize}
 
-\subsection{Setup}
-From the root directory use the build script to build the application docker image
-\shellcmd{./build <TAG>}
-\\
-Mongodb database and Mosquitto MQTT broker services are containerized and initialized through the
-\texttt{docker-compose} tool. Moreover an simple HTTP interface for mongodb was installed
-for administration purposes. To build and run the multi-container docker application run
-\shellcmd{docker-compose up -d}
-\\
-You can investigate application logs and output from flake, pytest and coverage using
-\shellcmd{docker-compose logs -f app}
-\\
-The current set-up firstly warms the mongo database with 150 dummy classification documents,
-then runs an mqtt client which publish classification result under the topic \emph{new\_prediction}
-and the run the application. For the purposes of this challenge the default embedded flask web server
-was used which is not suitable for production purposes.
-\\
-You can access the application on \\
-\\
-\hspace*{50pt}\url{http://127.0.0.1:5000}\\
-\\
-To stop the application execute on the current directory
-\shellcmd{docker-compose kill}
-\\
-To remove all stopped containers execute
-\shellcmd{docker-compose down -v}
+Before committing or creating a Merge Request or deploying all kind of tests (unit, component end-to-end) should be successful on the development branch.
 
-\subsection{CLI client}
-The CLI client was implemented to help on the development and test process of the application.
-Its main functionalities include a simple implementation of a mongodb and an mqtt client. The
-mongodb client was used to populate the empty db in order to manually test the implementation
-of the api calls and draftly evaluate the efficiency of the set-up. The mqtt client emulates
-the way classification results are forwarded to the application and was implemented in order
-to verify the connectivity of the publish/subscribe feature of the application.
-\\
-You can find the implementation of the cli client under \texttt{project/cli\_utils}.
-\paragraph{Draft Evaluation} \hspace{1pt} \\
+\subsection{Logs}
+Logs are currently forwarded to stdout and can be accessed by kubectl logs. 
+On this stage the log level is statically defined to INFO but it can be easily 
+configured as an environment variable as well. 
+Moreover, log streams can be piped to a database like Elasticsearch in order to perform 
+operations on them ,like aggregations, or provide visualizations (Kibana).
+\subsection{Admin processes}
+The straight forward declaration of the application didn't imply any administration tasks.
+Similar tasks ,like horizontal scaling, can be done on the cluster level using kubectl tool
+
+
+
+\section{Eventsource}
+We can run the http server handling an eventsource function  on a goroutine (defined on the same errgroup). We can then use streams to push events to 
+the eventsource server from another goroute (eg the gRPC goroutine). A client can then subscribe to the http enpoint in order to receive the events.
+\section{Monitoring}
+A monitoring system for the cluster is usually provided (or can be easily installed) from the Cloud Provider. Moreover every app can expose its metrics and store them to TSDB. On top of this setup an alert system and a visualization tool are needed. I personally favor 
+\texttt{Prometheus}, \texttt{Alert Manager} and \texttt{Graphana}.
+
+\section{Conclusion}
+\subsection{Notes}
+\subsection{Improvements}
+
 \end{document}

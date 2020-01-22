@@ -21,6 +21,14 @@
   version = "v0.5.0"
 
 [[projects]]
+  digest = "1:7ae311278f7ccaa724de8f2cdec0a507ba3ee6dea8c77237e8157bcf64b0f28b"
+  name = "github.com/golang/mock"
+  packages = ["gomock"]
+  pruneopts = "UT"
+  revision = "3dcdcb6994c4de42a73bd2e4790178be3ed4554b"
+  version = "v1.4.0"
+
+[[projects]]
   digest = "1:7ade0e7351787347d3dd3456abb365fd71ea75c19a859505e6a427064e1f9e42"
   name = "github.com/golang/protobuf"
   packages = [
@@ -36,12 +44,17 @@
   version = "v1.3.2"
 
 [[projects]]
-  digest = "1:6221a3a452964b1ff30efdc22209b124d54d04373e5993264d3fa9b13da0659d"
-  name = "github.com/namsral/flag"
-  packages = ["."]
+  digest = "1:2e3c336fc7fde5c984d2841455a658a6d626450b1754a854b3b32e7a8f49a07a"
+  name = "github.com/google/go-cmp"
+  packages = [
+    "cmp",
+    "cmp/internal/diff",
+    "cmp/internal/function",
+    "cmp/internal/value",
+  ]
   pruneopts = "UT"
-  revision = "71ceffbeb0ba60fccc853971bb3ed4d7d90bfd04"
-  version = "v1.7.4-pre"
+  revision = "3af367b6b30c263d47e8895973edcca9a49cf029"
+  version = "v0.2.0"
 
 [[projects]]
   digest = "1:cf19fe502437ad05a406c66f7af3329270c6712ec04d708de00565e1d3826f0f"
@@ -63,6 +76,14 @@
   pruneopts = "UT"
   revision = "22a9feb22fe99439870ed2e013401725a9d495df"
   version = "v1.8.1"
+
+[[projects]]
+  digest = "1:cf31692c14422fa27c83a05292eb5cbe0fb2775972e8f1f8446a71549bd8980b"
+  name = "github.com/pkg/errors"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "ba968bfe8b2f7e042a574c888954fccecfa385b4"
+  version = "v0.8.1"
 
 [[projects]]
   branch = "master"
@@ -93,11 +114,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:46aee4748419921a611e49842c732b3b8afe6a0926017ad1a68b9d0e11fdd288"
+  digest = "1:8a44970c7e8c0a1c8646af14605c1ffd31374074d68101c2e11d7761df12c9d1"
   name = "golang.org/x/sys"
   packages = ["unix"]
   pruneopts = "UT"
-  revision = "34d275377bf96a094e8d5b0c61750ddd54cd6b36"
+  revision = "e047566fdf82409bf7a52212cf71df83ea2772fb"
 
 [[projects]]
   digest = "1:28deae5fe892797ff37a317b5bcda96d11d1c90dadd89f1337651df3bc4c586e"
@@ -210,22 +231,38 @@
   revision = "1f64d6156d11335c3f22d9330b0ad14fc1e789ce"
   version = "v2.2.7"
 
+[[projects]]
+  digest = "1:a5cc901b8e54c4b73a62f97dc7c8f6c46e347c148a7a38e09b2e942c2587ba03"
+  name = "gotest.tools"
+  packages = [
+    "assert",
+    "assert/cmp",
+    "internal/difflib",
+    "internal/format",
+    "internal/source",
+  ]
+  pruneopts = "UT"
+  revision = "1083505acf35a0bd8a696b26837e1fb3187a7a83"
+  version = "v2.3.0"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
     "github.com/go-kit/kit/log",
     "github.com/go-kit/kit/log/level",
+    "github.com/golang/mock/gomock",
     "github.com/golang/protobuf/proto",
-    "github.com/namsral/flag",
     "github.com/onsi/gomega",
     "golang.org/x/net/context",
     "golang.org/x/sync/errgroup",
     "google.golang.org/grpc",
     "google.golang.org/grpc/codes",
     "google.golang.org/grpc/keepalive",
+    "google.golang.org/grpc/metadata",
     "google.golang.org/grpc/reflection",
     "google.golang.org/grpc/status",
+    "gotest.tools/assert",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1

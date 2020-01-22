@@ -10,7 +10,6 @@ import (
     "time"
     "errors"
 
-    "github.com/namsral/flag"
 	kitlog "github.com/go-kit/kit/log"
     "github.com/go-kit/kit/log/level"
 	context "golang.org/x/net/context"
@@ -24,6 +23,7 @@ import (
 
 const appName = "ori-grpc"
 
+// Define global variables like logger, grpcServer
 var (
     version = os.Getenv("VERSION")
 	srvPort = os.Getenv("BIND_PORT")
@@ -32,11 +32,13 @@ var (
     grpcServer        *grpc.Server
 )
 
+// Define the server struct which methods are to be exposed if gRPC
 type Server struct {
 	appName string
 	logger  kitlog.Logger
 }
 
+// Constructor method
 func NewServer(appName string, logger kitlog.Logger) *Server {
     level.Info(logger).Log("msg", "Creating server")
 	return &Server{
@@ -45,6 +47,7 @@ func NewServer(appName string, logger kitlog.Logger) *Server {
 	}
 }
 
+// Calculating sum
 func (s *Server) Sum(ctx context.Context, p *pb.Point) (*pb.Ret, error) {
     level.Info(s.logger).Log("msg", "Received", "point", p)
 
@@ -59,38 +62,53 @@ func (s *Server) Sum(ctx context.Context, p *pb.Point) (*pb.Ret, error) {
 	return &pb.Ret{Ret: sum, Msg: "Success"}, nil
 }
 
+// Calculating gcd of points
 func (s *Server) Gcd(stream pb.OriService_GcdServer) error {
 
-	point, err := stream.Recv()
-	if err == io.EOF {
-		x, y := point.X, point.Y
-		for y != 0 {
-			x, y = y, x%y
-		}
-		return stream.SendAndClose(&pb.Ret{
-			Ret: x,
-			Msg: "Success",
-		})
-	}
-	if err != nil {
-		return err
-	}
-	return nil
+    var pointCount    int64
+    var gcdList     []int64
+    for {
+        point, err := stream.Recv()
+        if err == io.EOF {
+            return stream.SendAndClose(&pb.RetSummary{
+                Ret: gcdList,
+                TotalPoints: pointCount,
+                Msg: "Success",
+            })
+        }
+        if err != nil {
+            return err
+        }
+        if point == nil {
+            level.Error(s.logger).Log("msg", "Nil Point provided")
+            return errors.New("Nil Point provided")
+        }
+        pointCount++
+        // Calculate gcd
+        x, y := point.X, point.Y
+        for y != 0 {
+            x, y = y, x%y
+        }
+        gcdList = append(gcdList, x)
+    }
 }
 
+// Calculating the sqrt
 func (s *Server) Sqrt(v *pb.Value, stream pb.OriService_SqrtServer) error {
 
-	sqrt := math.Sqrt(float64(v.V))
+	sqrt := math.Sqrt(math.Abs(float64(v.V)))
 	res := &pb.Ret{Ret: int64(sqrt), Msg: "Success"}
-	if err := stream.Send(res); err != nil {
-		return err
+    for i := 1;  i<=3; i++ {
+        level.Debug(s.logger).Log("msg", "Sending to stream")
+        if err := stream.Send(res); err != nil {
+            return err
+        }
 	}
 	return nil
 }
 
+// Main func
 func main() {
-
-    flag.Parse()
 
     // Set up logger
 	logger = kitlog.NewJSONLogger(kitlog.NewSyncWriter(os.Stdout))
@@ -107,6 +125,7 @@ func main() {
 	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
 	defer signal.Stop(interrupt)
 
+    // Create errgroup with context
     g, ctx := errgroup.WithContext(ctx)
 
     // Initialize server struct
@@ -138,6 +157,7 @@ func main() {
     })
 
 
+    // Catch SIGTERM
     select {
 	case <-interrupt:
         level.Info(logger).Log("msg", "Interrupt case")

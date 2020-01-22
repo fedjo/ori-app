@@ -6,11 +6,11 @@ import (
     "testing"
 
     . "github.com/onsi/gomega"
-	kitlog "github.com/go-kit/kit/log"
+    kitlog "github.com/go-kit/kit/log"
     "github.com/go-kit/kit/log/level"
 
-	srv "github.com/fedjo/ori-app/srv"
-	pb "github.com/fedjo/ori-app/pb"
+    srv "github.com/fedjo/ori-app/srv"
+    pb "github.com/fedjo/ori-app/pb"
 )
 
 var (
@@ -24,8 +24,8 @@ func TestSum(t *testing.T) {
 
 
     // Set up logger
-	logger = kitlog.NewJSONLogger(kitlog.NewSyncWriter(os.Stdout))
-	logger = kitlog.With(logger, "app", appName)
+    logger = kitlog.NewJSONLogger(kitlog.NewSyncWriter(os.Stdout))
+    logger = kitlog.With(logger, "app", appName)
     logger = level.NewFilter(logger, level.AllowAll())
 
     level.Info(logger).Log("msg", "Starting server testcase")
@@ -71,7 +71,7 @@ func TestSum(t *testing.T) {
 
             if testCase.expectedErr {
                 g.Expect(resp).ToNot(BeNil(), "Result should be nil")
-				g.Expect(err).ToNot(BeNil(), "Result should be nil")
+                g.Expect(err).ToNot(BeNil(), "Result should be nil")
             } else {
                 g.Expect(resp.Ret).To(Equal(testCase.req.X + testCase.req.Y))
             }

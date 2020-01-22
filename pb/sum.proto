@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package pb;
 
+// Straight-forward declaration of payloads
 message Value {
     int64 v = 1;
 }
@@ -16,12 +17,30 @@ message Ret {
     string msg = 2;
 }
 
+message RetSummary {
+    repeated int64 ret = 1;
+    int64 totalPoints = 2;
+    string msg = 3;
+}
+
 service OriService {
 
+    // Simple RPC
+    //
+    // Receives a Point and returns the sum of its elements
+    //
+    // A sum of zero is returned when an empty Point is provided
     rpc Sum(Point) returns (Ret) {}
 
-    rpc Gcd(stream Point) returns (Ret) {}
+    // Client-to-server streaming RPC
+    //
+    // Receives a stream of Points and returns a summary with the GCD
+    // for each point. Empty Point returns 0.
+    rpc Gcd(stream Point) returns (RetSummary) {}
 
+    // Server-to-client streaming RPC
+    //
+    // Receives value and streams back three-times the  SQRT of its
     rpc Sqrt(Value) returns (stream Ret) {}
 
 }

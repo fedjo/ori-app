@@ -89,6 +89,7 @@ func (s *Server) Gcd(stream pb.OriService_GcdServer) error {
         for y != 0 {
             x, y = y, x%y
         }
+        level.Info(s.logger).Log("msg", "GCD calculated: ", "value", x)
         gcdList = append(gcdList, x)
     }
 }

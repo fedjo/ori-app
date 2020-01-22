@@ -14,6 +14,7 @@
 Clone this repo and go to repo folder
 ```
 git clone https://github.com/fedjo/ori-app.git && cd deevio-project
+```
 
 ### Local
 
@@ -24,6 +25,7 @@ protoc  -I . --go_out=plugins=grpc:. ./*.proto
 ```
 2. Download dependencies
 ```
+cd ..
 dep ensure -v
 ```
 3. Set environment variables BIND\_PORT and SERVER\_ADDRESS
@@ -42,7 +44,6 @@ go run -v client/main.go 42 10
 
 
 ### Docker
-```
 1. Build docker image of the developed web service
 ```
 cd docker

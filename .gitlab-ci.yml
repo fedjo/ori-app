@@ -1,0 +1,117 @@
+stages:
+  - build
+  - test
+  - deploy
+  - manage
+
+
+variables:
+  CLI_IMAGE: client
+  SRV_IMAGE: srv
+  MOCK_IMAGE: mock
+
+# Build stage - Build all docker images
+build:
+  stage: build
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - ./docker/build.sh -p $CI_BUILD_REF_SLUG
+    - docker push $CI_REGISTRY_IMAGE/$CLI_IMAGE:$CI_BUILD_REF_SLUG
+    - docker push $CI_REGISTRY_IMAGE/$SRV_IMAGE:$CI_BUILD_REF_SLUG
+    - if [ "$CI_BUILD_REF_SLUG" != "master" ]; then exit 0; fi
+    - docker push $CI_REGISTRY_IMAGE/dev:$CI_BUILD_REF_SLUG
+  tags:
+    - docker-build
+  dependencies: []
+
+
+# Test stage
+test:
+  stage: test
+  script:
+    # Execute mocking grpc server and server unittests
+    - docker pull "$CI_REGISTRY_IMAGE/$MOCK_IMAGE:$CI_BUILD_REF_SLUG"
+    - docker run $CI_REGISTRY_IMAGE/$MOCK_IMAGE:$CI_BUILD_REF_SLUG
+
+
+# Deploy stage
+
+## Deploy template to be used for deploying to staging and review apps
+.deploy_template: &deploy_template
+  stage: deploy
+  variables: &deploy_variables
+    VERSION: $CI_BUILD_REF_SLUG
+    ENVIRONMENT: $CI_ENVIRONMENT_NAME
+    URL: $CI_ENVIRONMENT_URL
+  artifacts:
+    expire_in: 7 days
+  dependencies: []
+
+## Deploy branch to each own dynamically created review app
+
+## Deploy master branch to staging environment
+deploy staging:
+  <<: *deploy_template
+  environment:
+    name: staging
+  variables:
+    <<: *deploy_variables
+  script:
+    - kubectl config use-context staging-cluster
+    - kubectl apply -f server.yaml
+    - kubectl apply -f client.yaml
+  only:
+    - development
+
+## Deploy prod branch to production environment
+deploy production:
+  <<: *deploy_template
+  environment:
+    name: production
+  variables:
+    <<: *deploy_variables
+  script:
+    - kubectl config use-context production-cluster
+    - kubectl apply -f server.yaml
+    - kubectl apply -f client.yaml
+  only:
+    - master
+
+
+# Manage stage - Manual actions on environments
+
+## Manage template to be used by all jobs in this stage
+.manage_template: &manage_template
+  stage: manage
+  when: manual
+  variables:
+    GIT_STRATEGY: none
+  dependencies: []
+
+## Display env logs
+show server logs:
+  <<: *manage_template
+  script:
+    - kubectl logs -f deployment/server.yaml --all-containers=true --since=15m
+
+show client logs:
+  <<: *manage_template
+  script:
+    - kubectl logs -f deployment/client.yaml --all-containers=true --since=15m
+
+## Restart containers of deployed environment.
+scale server:
+  <<: *manage_template
+  script:
+    ## Variable defined in the CI/CD settings
+    - kubectl scale --replicas=$SERVER_REPLICAS -f server.yaml
+
+## Delete all pods and services in namespace default
+clear cluster:
+  <<: *manage_template
+  stage: manage
+  script:
+    - kubectl -n default delete pod,svc --all

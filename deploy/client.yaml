@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: client
+  labels:
+    app: client
+spec:
+  selector:
+    matchLabels:
+      app: client
+  template:
+    metadata:
+      labels:
+        app: client
+    spec:
+      containers:
+        - name: grpc-client
+          image: local/client
+          ports:
+          - containerPort: 3000
+          env:
+            - name: SERVER_ADDRESS
+              value: "server:3000"
